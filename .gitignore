@@ -1,0 +1,11 @@
+.idea/
+.webassets-cache/
+*.min.css
+*.min.js
+*.pyc
+*.egg-info
+*.mo
+dist/
+build/
+webpack-build-config.json
+node_modules/
