@@ -1,6 +1,6 @@
 # Indico Plugin React example
 
-Install: python setup.py develop
+Install: pip install -e .
 
 Do not forget to build the assets!!
 
