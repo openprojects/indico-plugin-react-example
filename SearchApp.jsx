@@ -1,5 +1,5 @@
 // This file is part of Indico.
-// Copyright (C) 2002 - 2022 CERN
+// Copyright (C) 2002 - 2023 CERN
 //
 // Indico is free software; you can redistribute it and/or
 // modify it under the terms of the MIT License; see the
@@ -38,15 +38,13 @@ const camelizeValues = obj =>
     {}
   );
 
-export function useSearch(url, query, type, scope = {}) {
+function useSearch(url, query, type, scope = {}) {
   const [page, setPage] = useState(undefined);
 
-  const {data, error, loading, lastData} = useIndicoAxios({
-    url,
-    options: {params: {...query, type, page, ...scope}},
-    forceDispatchEffect: () => query?.q,
-    trigger: [url, query, page],
-  });
+  const {data, error, loading, lastData} = useIndicoAxios(
+    {url, params: {...query, type, page, ...scope}},
+    {manual: !query?.q}
+  );
 
   useEffect(() => {
     setPage(undefined);
@@ -224,11 +222,7 @@ export default function SearchApp({category, eventId, isAdmin}) {
   if (!adminOverrideEnabled) {
     delete query.admin_override_enabled;
   }
-  const {data: options} = useIndicoAxios({
-    url: searchOptionsURL(),
-    trigger: 'once',
-    camelize: true,
-  });
+  const {data: options} = useIndicoAxios(searchOptionsURL(), {camelize: true});
   let scope = {};
   if (eventId !== null) {
     scope = {event_id: eventId};
@@ -260,9 +254,11 @@ export default function SearchApp({category, eventId, isAdmin}) {
     'event_note',
     scope
   );
-  // const [userResults, setUserPage] = useSearch(searchURL(), query, 'user', scope);
-  const searchResultsFromHooks = getPluginObjects('search_hooks', true).map(x => useSearch(
-    searchURL(), query, x, scope));
+  const searchTypesFromPlugins = getPluginObjects('search_result_types').map(
+    ([title, type, resultComponent]) =>
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      [title, useSearch(searchURL(), query, type, scope), resultComponent]
+  );
   const searchMap = eventSearch
     ? [
         [Translate.string('Contributions'), contributionResults, setContributionPage, Contribution],
@@ -274,8 +270,12 @@ export default function SearchApp({category, eventId, isAdmin}) {
         [Translate.string('Materials'), fileResults, setFilePage, Attachment],
         [Translate.string('Notes'), noteResults, setNotePage, EventNote],
         [Translate.string('Categories'), categoryResults, setCategoryPage, Category],
-        // [Translate.string('Users'), userResults, setUserPage, User],
-        ...getPluginObjects('search_map_entries'),
+        ...searchTypesFromPlugins.map(([title, [hookResults, setHookPage], resultComponent]) => [
+          title,
+          hookResults,
+          setHookPage,
+          resultComponent,
+        ]),
       ];
   // Defaults to the first tab loading or with results
   const menuItem =
